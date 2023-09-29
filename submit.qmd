@@ -150,7 +150,7 @@ ggplot(county_data, aes(x = `Daily Mean PM2.5 Concentration`, fill = factor(year
   scale_fill_manual(values = c("blue", "red"))
 ```
 
-For counties, overall it appears that they have significantly decreased in variation and mean in the daily mean of PM2.5 in 2022 compared to 2002.
+For counties, overall it appears that they have significantly decreased in variation as well as mean in the daily mean of PM2.5 in 2022 compared to 2002.
 
 ```{r}
 la_county_data <- comb_airpoll %>%
