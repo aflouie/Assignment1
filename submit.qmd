@@ -1,28 +1,182 @@
 ---
-title: ""
-author: ""
+title: "Homework 1"
+author: "Allison Louie"
 format:
   html:
     embed-resources: true
+editor: visual
+fig.width: 5
+fig.height: 3
+theme: cerulean
 ---
 
-## Quarto
-
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
-
-## Running Code
-
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+## #1
 
 ```{r}
-1 + 1
+library(data.table)
+data_2002 <- fread("2002_data.csv")
+data_2022 <- fread("2022_data.csv")
 ```
-
-You can add options to executable code like this
 
 ```{r}
-#| echo: false
-2 * 2
+dim(data_2002)
+head(data_2002)
+tail(data_2002)
+names(data_2002)
+str(data_2002)
+summary(data_2002)
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
+```{r}
+dim(data_2022)
+head(data_2022)
+tail(data_2022)
+str(data_2022)
+summary(data_2022)
+```
+
+In summary, the data sets from 2002 and 2022 have the same variables being observed. Since we are looking at the air pollution through daily concentrations of PM2.5, it seems like there are more information from 2022 than in 2002, appearing to be a change.
+
+## #2
+
+```{r}
+library(dplyr)
+library(lubridate)
+comb_airpoll <- rbind(data_2002, data_2022)
+comb_airpoll$newdate <- as.Date(comb_airpoll$Date, format = "%m/%d/%Y")
+comb_airpoll$year <- year(comb_airpoll$newdate)
+```
+
+## #3
+
+```{r}
+library(leaflet)
+library(leaflet.providers)
+comb_airpoll2 <- comb_airpoll[,.(year, lat = SITE_LATITUDE, lon = SITE_LONGITUDE), by=c("CBSA_CODE")]
+comb_airpoll2 <- comb_airpoll2[!is.na(year)]
+
+year.pal <- colorNumeric(c('blue', 'red'), domain = comb_airpoll$year)
+year.pal
+
+map <- leaflet(data = comb_airpoll) %>%
+  addProviderTiles('CartoDB.Positron') %>%
+  addCircles(
+    lat = ~SITE_LATITUDE,
+    lng = ~SITE_LONGITUDE,
+    label = ~paste0(round(year, 2), "%"),
+    color = ~year.pal(year),
+    opacity = 1,
+    fillOpacity = 1,
+    radius = 5
+  ) %>%
+  addLegend(
+    position = "bottomright",
+    colors = c("blue", "red"),
+    labels = c("2002", "2022"),
+    title = "Years",
+    opacity = 0.7
+  )
+map
+```
+
+Within the state of California, the monitoring sites are mostly in 2022 all over CA while in 2002, there were very little amount of them to record. For 2002, it seems that there are only a few scattered around.
+
+## #4
+
+```{r}
+missing_values <- sum(is.na(comb_airpoll$`Daily Mean PM2.5 Concentration`))
+missing_values
+
+library(ggplot2)
+
+ggplot(comb_airpoll, aes(x = year, y = `Daily Mean PM2.5 Concentration`)) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Daily Mean PM2.5 Concentration (µg/m³ LC)"
+  ) +
+  ggtitle("Temporal Patterns of PM2.5 Concentrations")
+```
+
+The patterns over the years seem to have greatly increased when looking at the daily mean concentration.
+
+## #5
+
+```{r}
+state_data <- comb_airpoll %>%
+  filter(year %in% c(2002, 2022)) %>%
+  group_by(STATE, year)
+  
+ggplot(state_data, aes(x = STATE, y = `Daily Mean PM2.5 Concentration`, fill = factor(year))) +
+  geom_boxplot() +
+  labs(
+    x = "State",
+    y = "Daily Mean PM2.5 Concentration (µg/m³)",
+    fill = "Year"
+  ) +
+  ggtitle("Distribution of Daily Mean PM2.5 Concentrations by State (2002 vs. 2022)")
+
+ggplot(state_data, aes(x = year, y = `Daily Mean PM2.5 Concentration`, group = STATE, color = STATE)) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Mean PM2.5 Concentration (µg/m³)",
+    title = "Trend in Daily Mean PM2.5 Concentrations by State (2002 vs. 2022)"
+  )
+```
+
+In the state of California (which was observed in the data), the daily mean PM2.5 concentrations seemed to have had a wider variation in 2022 compared to 2002, causing for the mean to be smaller in 2022 compared to 2002.
+
+```{r}
+county_data <- state_data %>%
+  group_by(COUNTY, year)
+
+ggplot(county_data, aes(x = COUNTY, y = `Daily Mean PM2.5 Concentration`, fill = factor(year))) +
+  geom_boxplot() +
+  labs(
+    x = "County",
+    y = "Daily Mean PM2.5 Concentration (µg/m³)",
+    title = "Boxplot of Daily Mean PM2.5 Concentrations by County (2002 vs. 2022)"
+  ) +
+  scale_fill_manual(values = c("blue", "red"))
+
+ggplot(county_data, aes(x = `Daily Mean PM2.5 Concentration`, fill = factor(year))) +
+  geom_histogram() +
+  labs(
+    x = "Daily Mean PM2.5 Concentration (µg/m³)",
+    y = "Count",
+    title = "Histogram of Daily Mean PM2.5 Concentrations by County (2002 vs. 2022)"
+  ) +
+  scale_fill_manual(values = c("blue", "red"))
+```
+
+For counties, overall it appears that they have significantly decreased in variation and mean in the daily mean of PM2.5 in 2022 compared to 2002.
+
+```{r}
+la_county_data <- comb_airpoll %>%
+  filter(COUNTY == "Los Angeles")
+
+site_data <- la_county_data %>%
+  group_by(`Site Name`)
+
+ggplot(site_data, aes(x = `Site Name`, y = `Daily Mean PM2.5 Concentration`, fill = factor(year))) +
+  geom_boxplot() +
+  labs(
+    x = "Site Name",
+    y = "Daily Mean PM2.5 Concentration (µg/m³)",
+    title = "Boxplot of Mean PM2.5 Concentrations by Site (2002 vs. 2022)"
+  ) +
+  scale_fill_manual(values = c("blue", "red"))
+
+ggplot(site_data, aes(x = `Daily Mean PM2.5 Concentration`, fill = factor(year))) +
+  geom_histogram() +
+  labs(
+    x = "Daily Mean PM2.5 Concentration (µg/m³)",
+    y = "Count",
+    title = "Histogram of Daily Mean PM2.5 Concentrations by Site (2002 vs. 2022)"
+  ) +
+  scale_fill_manual(values = c("blue", "red"))
+
+```
+
+For sites in Los Angeles, it appears that the same trend it happening to the counties and states. Overall, it seems that sites have been able to see less of the concentrations in 2022 compared to 2002. But in terms of the daily mean in general compared to counties and states, there is a lot more to observe compared to counties.
